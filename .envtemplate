@@ -1,0 +1,3 @@
+ETHEREUM_RPC_URL = <jsonrpc>
+PRIVATE_KEY = <your wallet>
+FLASHBOTS_REPLAY_SIGNING_KEY = <private for only relaying signing>
