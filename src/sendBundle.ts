@@ -28,26 +28,31 @@ console.log(FLASHBOTS_RELAY_SIGNING_KEY)
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY)
 const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY)
 
-function resolveTransactionResponse(txResponse: TransactionResponse): TransactionRequest {
-    let txRequest: TransactionRequest
-    txRequest = {
-        to: txResponse.to,
-        from: txResponse.from,
-        nonce: txResponse.nonce,
-        gasLimit: txResponse.gasLimit,
-        gasPrice: txResponse.gasPrice,
-        data: txResponse.data,
-        value: txResponse.value,
-        chainId: txResponse.chainId,
-        type: txResponse.type!,
-        accessList: txResponse.accessList,
-        maxPriorityFeePerGas: txResponse.maxPriorityFeePerGas,
-        maxFeePerGas: txResponse.maxFeePerGas
+async function getSignedTransaction(transaction: TransactionResponse) {
+    console.log("Getting signed transaction from raw transaction object")
+    let transactionObject = {
+        to: transaction.to,
+        nonce: transaction.nonce,
+        gasLimit: ethers.BigNumber.from(transaction.gasLimit),
+        gasPrice: ethers.BigNumber.from(transaction.gasPrice),
+        data: transaction.data,
+        value: ethers.BigNumber.from(transaction.value),
+        chainId: transaction.chainId
     }
-    return txRequest;
+
+    let signature = {
+        r: transaction.r!,
+        s: transaction.s,
+        v: transaction.v
+    }
+
+    let signedTransaction = ethers.utils.serializeTransaction(transactionObject, signature)
+
+    return signedTransaction
 }
 
-function createSandwichBundle(topBread: TransactionRequest, filling: string, bottomBread: TransactionRequest, executorWallet: Signer): Array<(FlashbotsBundleTransaction | FlashbotsBundleRawTransaction)> {
+
+function createSandwichBundle(filling: string, executorWallet: Signer): Array<(FlashbotsBundleTransaction | FlashbotsBundleRawTransaction)> {
     // const bundleTransactions = new Array<(FlashbotsBundleTransaction | FlashbotsBundleRawTransaction)>(
     //     {
     //         transaction: topBread,
@@ -70,41 +75,46 @@ function createSandwichBundle(topBread: TransactionRequest, filling: string, bot
 }
 
 async function main() {
-    const flashbotsProvider = await FlashbotsBundleProvider.create(provider, flashbotsRelaySigningWallet, FLAHSBOTS_ENDPOINT)
+    const flashbotsProvider = await FlashbotsBundleProvider.create(provider, flashbotsRelaySigningWallet)
     const scanTxPool = () => {
         provider.on("pending", async (txHash) => {
             const blockNumber = await provider.getBlockNumber();
-            const targetTxResponse = await provider.getTransaction(txHash)
+            const targetTxResponse = await provider.getTransaction(txHash);
             if(targetTxResponse) {
-                const raw = targetTxResponse.raw;
-                console.log("raw", raw);
-                const targetTxRequest = resolveTransactionResponse(targetTxResponse)
-                console.log("targetTxResponse:", targetTxResponse);
+                const signedTx = await getSignedTransaction(targetTxResponse);
                 // TODO: make gas fee variable
 
                 // create bundle
-                const bundledTransactions = createSandwichBundle(targetTxRequest, raw!, targetTxRequest, arbitrageSigningWallet);
+                const bundledTransactions = createSandwichBundle(signedTx , arbitrageSigningWallet);
+                console.log(bundledTransactions)
                 console.log("bundle created")
                 // signed bundle
                 const signedBundle = await flashbotsProvider.signBundle(bundledTransactions);
                 // run simulation
                 const simulation = await flashbotsProvider.simulate(signedBundle, blockNumber + 1);
-                if ("error" in simulation || simulation.firstRevert !== undefined) {
-                    console.error(`Simulation error occured`);
+                console.log(simulation)
+                if ("error" in simulation) {
+                    throw new Error(simulation.error.message)
+                }
+                if(simulation.firstRevert !== undefined) {
+                    console.log("simulation.firstRevert:", simulation.firstRevert)
+                    process.exit(1)
                 }
                 // submit bundle
                 const bundleSubmitResponse = await flashbotsProvider.sendRawBundle(signedBundle, blockNumber + 1)
 
                 if ("error" in bundleSubmitResponse) {
-                    console.log(bundleSubmitResponse.error.message)
-                    return
+                    throw new Error(bundleSubmitResponse.error.message)
                 }
+                else {
+                    console.log("submitted") 
                 }
+            }
          })
 
         provider.on("error", async (error) => {
             console.log(`Connection lost, Attempting reconnect in 3s...`);
-            console.log(error);
+            console.error(error);
             setTimeout(scanTxPool, 3000);
         })
     }
