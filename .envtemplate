@@ -1,3 +1,8 @@
-ETHEREUM_RPC_URL = <jsonrpc>
-PRIVATE_KEY = <your wallet>
-FLASHBOTS_REPLAY_SIGNING_KEY = <private for only relaying signing>
+PRIVATE_KEY=<executor wallet private key>
+FLASHBOTS_REPLAY_SIGNING_KEY=<private key for flashbots relay>
+
+ETHEREUM_RPC_URL=<URL>
+FLASHBOTS_ENDPOINT=https://relay.flashbots.net
+
+GOERLI_RPC_URL=<URL>
+FLASHBOTS_GOERLI_ENDPOINT=https://relay-goerli.flashbots.net

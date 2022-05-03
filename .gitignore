@@ -3,3 +3,6 @@ node_modules
 
 // project private files
 .env
+
+//vs code setting
+.vscode
