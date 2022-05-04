@@ -7,19 +7,24 @@ import { GWEI, getDefaultRelaySigningKey, getSignedTransaction } from "./utils";
 // flashbots uses goreli testnet
 const NETWORK = "goerli"
 
-const PRIVATE_KEY = process.env.PRIVATE_KEY || ""
+const PRIVATE_KEY = process.env.PRIVATE_KEY
 const FLASHBOTS_RELAY_SIGNING_KEY = process.env.FLASHBOTS_RELAY_SIGNING_KEY || getDefaultRelaySigningKey()
+const NETWORK_RPC_URL = process.env.GOERLI_RPC_URL
 
-if(process.env.PRIVATE_KEY === "") {
+if(PRIVATE_KEY === undefined) {
+    console.error("Please provide PRIVATE_KEY environment variable")
+    process.exit(1);
+}
+if(NETWORK_RPC_URL === undefined) {
     console.error("Please provide PRIVATE_KEY environment variable")
     process.exit(1);
 }
 
-const provider = ethers.getDefaultProvider(process.env.GOERLI_RPC_URL);
+const provider = new ethers.providers.WebSocketProvider(NETWORK_RPC_URL);
 const arbitrageSigningWallet = new Wallet(PRIVATE_KEY, provider)
 const flashbotsRelaySigningWallet = new Wallet(FLASHBOTS_RELAY_SIGNING_KEY)
 
-function createSandwichBundle(filling: string, executorWallet: Signer): Array<(FlashbotsBundleTransaction | FlashbotsBundleRawTransaction)> {
+function createSandwichBundle(filling: string, executorWallet: Signer) {
     const bundleTransactions = new Array<(FlashbotsBundleTransaction | FlashbotsBundleRawTransaction)>(
         {
             signedTransaction: filling
@@ -38,6 +43,7 @@ async function main() {
                 console.log("sender", txResponse.from);
                 console.log(txResponse);
                 const signedTx = await getSignedTransaction(txResponse);
+                console.log(signedTx)
                 // TODO: make gas fee variable
 
                 // create bundle
@@ -73,6 +79,12 @@ async function main() {
         provider.on("error", async (error) => {
             console.log(`Connection lost, Attempting reconnect in 3s...`);
             console.error(error);
+            setTimeout(scanTxPool, 3000);
+        })
+
+        provider._websocket.on("close", async(code: any) => {
+            console.log("ws closed,", code);
+            provider._websocket.terminate();
             setTimeout(scanTxPool, 3000);
         })
     }

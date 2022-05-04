@@ -6,3 +6,7 @@ node_modules
 
 //vs code setting
 .vscode
+
+// hardhat
+artifacts
+cache

@@ -19,12 +19,22 @@ export async function getSignedTransaction(transaction: TransactionResponse) {
     console.log("Getting signed transaction from raw transaction object")
     let transactionObject = {
         to: transaction.to,
+        from: transaction.from,
         nonce: transaction.nonce,
-        gasLimit: ethers.BigNumber.from(transaction.gasLimit),
-        gasPrice: ethers.BigNumber.from(transaction.gasPrice),
+
+        gasLimit: transaction.gasLimit,
+        gasPrice: transaction.gasPrice,
+
         data: transaction.data,
-        value: ethers.BigNumber.from(transaction.value),
-        chainId: transaction.chainId
+        value: transaction.value,
+        chainId: transaction.chainId,
+
+        type: transaction.type,
+        accessList: transaction.accessList,
+
+        maxPriorityFeePerGas: transaction.maxPriorityFeePerGas,
+        maxFeePerGas: transaction.maxFeePerGas,
+
     }
 
     let signature = {
