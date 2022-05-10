@@ -30,6 +30,4 @@ export abstract class EthMarket {
     abstract getTokensOut(tokenIn: string, tokenOut: string, amountIn: BigNumber): BigNumber;
 
     abstract getTokensIn(tokenIn: string, tokenOut: string, amountOut: BigNumber): BigNumber;
-
-    abstract receiveDirectly(tokenAddress: string): boolean;
 }
