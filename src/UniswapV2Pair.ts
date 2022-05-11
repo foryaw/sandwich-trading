@@ -1,8 +1,9 @@
 import * as _ from "lodash";
 import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI } from "./abi";
 import { WETH_ADDRESS, UNISWAP_LOOKUP_CONTRACT_ADDRESS } from "./addresses";
-import { BigNumber, Contract, providers } from "ethers";
-import { EthMarket, TokenBalances } from "./EthMarket";
+import { BigNumber, BigNumberish, Contract, providers } from "ethers";
+import { TokenBalances, UniswapMarket } from "./UniswapMarket";
+import { BaseProvider } from "@ethersproject/providers";
 
 const BATCH_COUNT_LIMIT = 100;
 const UNISWAP_BATCH_SIZE = 1000;
@@ -13,7 +14,8 @@ const blacklistTokens = [
     '0xD75EA151a61d06868E31F8988D28DFE5E9df57B4'
   ]
 
-export class UniswapV2EthPair extends EthMarket {
+export type MarketsByAddress = { [marketAddress: string]: UniswapV2Pair }
+export class UniswapV2Pair extends UniswapMarket {
     private _tokenBalances: TokenBalances;
 
     constructor(marketAddress: string, tokens: Array<string>, protocol: string) {
@@ -22,11 +24,11 @@ export class UniswapV2EthPair extends EthMarket {
         this._tokenBalances = _.zipObject(tokens,[BigNumber.from(0), BigNumber.from(0)])
     }
 
-    static async getUniswapMarkets(provider: providers.BaseProvider, factoryAddress: string): Promise<Array<UniswapV2EthPair>> {
+    static async getUniswapMarkets(provider: providers.BaseProvider, factoryAddress: string): Promise<Array<UniswapV2Pair>> {
         // LOOKUP CONTRACT is the UniswapFlashQuery
         const uniswapQuery = new Contract(UNISWAP_LOOKUP_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
 
-        let marketPairs = new Array<UniswapV2EthPair>()
+        let marketPairs = new Array<UniswapV2Pair>()
         for (let i = 0; i < BATCH_COUNT_LIMIT * UNISWAP_BATCH_SIZE; i += UNISWAP_BATCH_SIZE) {
             const pairs: Array<Array<string>> = (await uniswapQuery.functions.getPairsByIndexRange(factoryAddress, i, i + UNISWAP_BATCH_SIZE))[0];
             for (let i = 0; i < pairs.length; i++) {
@@ -43,8 +45,8 @@ export class UniswapV2EthPair extends EthMarket {
                 else continue;
 
                 if (!blacklistTokens.includes(tokenAddress)) {
-                    const uniswapV2EthPair = new UniswapV2EthPair(marketAddress, [pair[0], pair[1]], "");
-                    marketPairs.push(uniswapV2EthPair);
+                    const uniswapV2Pair = new UniswapV2Pair(marketAddress, [pair[0], pair[1]], "");
+                    marketPairs.push(uniswapV2Pair);
                 }
             }
             if (pairs.length < UNISWAP_BATCH_SIZE) {
@@ -54,7 +56,7 @@ export class UniswapV2EthPair extends EthMarket {
         return marketPairs;
     }
 
-    static async updateReserves(provider: providers.BaseProvider, allMarketPairs: Array<UniswapV2EthPair>): Promise<void> {
+    static async updateReserves(provider: providers.BaseProvider, allMarketPairs: Array<UniswapV2Pair>): Promise<void> {
         const uniswapQuery = new Contract(UNISWAP_LOOKUP_CONTRACT_ADDRESS, UNISWAP_QUERY_ABI, provider);
         const pairAddresses = allMarketPairs.map(marketPair => marketPair.marketAddress);
         console.log("Updating markets, count:", pairAddresses.length);
@@ -66,7 +68,7 @@ export class UniswapV2EthPair extends EthMarket {
         }
     }
 
-    static simulateUpdateReserves(marketAddress: string, tokenIn: string, tokenOut: string, amountIn: BigNumber, allMarketPairs: Array<UniswapV2EthPair>): void {
+    static updateSingleMarketReserve(marketAddress: string, tokenIn: string, tokenOut: string, amountIn: BigNumber, allMarketPairs: Array<UniswapV2Pair>): void {
         for (let i = 0; i < allMarketPairs.length; i++) {
             const marketPair = allMarketPairs[i]
             if (marketPair.marketAddress === marketAddress) {
@@ -87,13 +89,12 @@ export class UniswapV2EthPair extends EthMarket {
         }
     }
 
-    static getMarketAddresses(allMarketPairs: Array<UniswapV2EthPair>): Array<string> {
-        const marketAddresses = new Array<string>()
-        for (let i = 0; i < allMarketPairs.length; i++) {
-            const marketAddress = allMarketPairs[i].marketAddress;
-            marketAddresses.push(marketAddress);
-        }
-        return marketAddresses;
+    static getUniswapMarketByAddress(allMarketPairs: Array<UniswapV2Pair>): MarketsByAddress {
+        const marketsByAddress: MarketsByAddress = _.chain(allMarketPairs)
+            .flatten()
+            .keyBy(pair => pair.marketAddress)
+            .value()
+        return marketsByAddress;
     }
 
     getBalance(tokenAddress: string): BigNumber {
@@ -115,13 +116,13 @@ export class UniswapV2EthPair extends EthMarket {
     getTokensIn(tokenIn: string, tokenOut: string, amountOut: BigNumber): BigNumber {
         const reserveIn = this._tokenBalances[tokenIn]
         const reserveOut = this._tokenBalances[tokenOut]
-        return this._getAmountIn(reserveIn, reserveOut, amountOut);
+        return this.getAmountIn(reserveIn, reserveOut, amountOut);
     }
     
     getTokensOut(tokenIn: string, tokenOut: string, amountIn: BigNumber): BigNumber {
         const reserveIn = this._tokenBalances[tokenIn]
         const reserveOut = this._tokenBalances[tokenOut]
-        return this._getAmountOut(reserveIn, reserveOut, amountIn);
+        return this.getAmountOut(reserveIn, reserveOut, amountIn);
     }
     
     // always quote in WETH, such as USDT/WETH
@@ -156,20 +157,18 @@ export class UniswapV2EthPair extends EthMarket {
     }
     
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
-    _getAmountIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber {
+    getAmountIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber {
         const numerator = reserveIn.mul(amountOut).mul(1000);
         const denominator = reserveOut.sub(amountOut).mul(997);
         return numerator.div(denominator).add(1);
     }
 
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-    _getAmountOut(reserveIn: BigNumber, reserveOut: BigNumber, amountIn: BigNumber): BigNumber {
+    getAmountOut(reserveIn: BigNumber, reserveOut: BigNumber, amountIn: BigNumber): BigNumber {
         const amountInWithFee = amountIn.mul(997);
         const numerator = amountInWithFee.mul(reserveOut);
         const denominator = reserveIn.mul(1000).add(amountInWithFee);
         return numerator.div(denominator);
     }
-
-
 }
 

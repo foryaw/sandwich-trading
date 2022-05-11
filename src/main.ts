@@ -1,10 +1,11 @@
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 import { UniswapV2EthPair } from "./UniswapV2EthPair";
 import { UNISWAP_FACTORY_ADDRESS } from "./addresses";
 import * as dotenv from "dotenv"
+import _ from "lodash";
 dotenv.config()
 
-const somePairs = [
+const somePairs= [
     '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc',
     '0x12EDE161c702D1494612d19f05992f43aa6A26FB',
     '0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11',
@@ -107,11 +108,146 @@ const somePairs = [
     '0x6fa835713c6daeDfA7A8bD241c8d658f51dF1FE0',
 ]
 
+const pairs  = [
+     {
+        _marketAddress: '0xa2107FA5B38d9bbd2C461D6EDf11B11A50F6b974',
+        _tokens: [
+          '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x514910771AF9Ca656af840dff83E8264EcF986CA': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0x718Dd8B743ea19d71BDb4Cb48BB984b73a65cE06',
+        _tokens: [
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+          '0xC0F9bD5Fa5698B6505F643900FFA515Ea5dF54A9'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber],
+          '0xC0F9bD5Fa5698B6505F643900FFA515Ea5dF54A9': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0x55D5c232D921B9eAA6b37b5845E439aCD04b4DBa',
+        _tokens: [
+          '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xa5E79baEe540f000ef6F23D067cd3AC22c7d9Fe6',
+        _tokens: [
+          '0xaaAEBE6Fe48E54f431b0C390CfaF0b017d09D42d',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0xaaAEBE6Fe48E54f431b0C390CfaF0b017d09D42d': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xC2aDdA861F89bBB333c90c492cB837741916A225',
+        _tokens: [
+          '0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0x99731C13ef1aaB58e48FA9a96deFEFdf1b8DE164',
+        _tokens: [
+          '0x054B642117892205A6F5a0b8c29Ffd10a6369d19',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x054B642117892205A6F5a0b8c29Ffd10a6369d19': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xad3B5027d090b7bc120Dc264906ca4642b0fb9F3',
+        _tokens: [
+          '0x78a685E0762096ed0F98107212e98F8C35A9D1D8',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x78a685E0762096ed0F98107212e98F8C35A9D1D8': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xF49144E61C05120f1b167E4B4F59cf0a5d77903F',
+        _tokens: [
+          '0x07597255910a51509CA469568B048F2597E72504',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x07597255910a51509CA469568B048F2597E72504': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xc5be99A02C6857f9Eac67BbCE58DF5572498F40c',
+        _tokens: [
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+          '0xD46bA6D942050d489DBd938a2C909A5d5039A161'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber],
+          '0xD46bA6D942050d489DBd938a2C909A5d5039A161': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0xC5A788F63e5D9cF2C324621EEd51A98F85AE373b',
+        _tokens: [
+          '0x9Cb2f26A23b8d89973F08c957C4d7cdf75CD341c',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x9Cb2f26A23b8d89973F08c957C4d7cdf75CD341c': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+       {
+        _marketAddress: '0x8AeC9fa239417C8Eb778728c175f2B5C36CB1cCf',
+        _tokens: [
+          '0x5A844590c5b8f40ae56190771d06c60b9ab1Da1C',
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+        ],
+        _protocol: '',
+        _tokenBalances: {
+          '0x5A844590c5b8f40ae56190771d06c60b9ab1Da1C': [BigNumber],
+          '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': [BigNumber]
+        }
+      },
+]
+
 async function main() {
-    const provider = new ethers.providers.WebSocketProvider(process.env.ETHEREUM_RPC_URL!);
-    const allPairs = await UniswapV2EthPair.getUniswapMarkets(provider, UNISWAP_FACTORY_ADDRESS);
-    const allAddr = UniswapV2EthPair.getMarketAddresses(allPairs)
-    console.log(allAddr)
+    const provider = ethers.getDefaultProvider(process.env.ETHEREUM_RPC_URL)
+    const allPairs = await UniswapV2EthPair.getUniswapMarkets(provider, UNISWAP_FACTORY_ADDRESS)
+    const marketsByAddress = UniswapV2EthPair.getUniswapMarketByAddress(allPairs)
+    console.log(marketsByAddress)
 }
 
 main()
