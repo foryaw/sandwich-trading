@@ -1,7 +1,8 @@
-import { BigNumber, Wallet, ethers } from "ethers";
+import { BigNumber, Wallet, ethers, Contract, providers } from "ethers";
 import { TransactionResponse } from "@ethersproject/abstract-provider";
-import { UNISWAP_PAIR_ABI, UNISWAP_ROUTER_ABI } from "./abi";
+import { UNISWAP_PAIR_ABI, UNISWAP_ROUTER_ABI, ERC20_ABI } from "./abi";
 import { UniswapPairTransactionInfo, UniswapRouterTransactionInfo } from "./SandwichAttack";
+import { WETH_ADDRESS } from "./addresses";
 
 export const ETHER = BigNumber.from(10).pow(18)
 export const GWEI = BigNumber.from(10).pow(9)
@@ -67,68 +68,123 @@ export function decodeUniswapRouterTransaction(transaction: TransactionResponse)
     const decodedInput = iface.parseTransaction({ data: transaction.data, value: transaction.value });
     const funcName = decodedInput.name
     let txInfo: UniswapRouterTransactionInfo;
+
     switch (funcName) {
-        case "swapExactTokensForTokens":
-            txInfo = {
-                amountIn: decodedInput.args[0],
-                amountOutMin: decodedInput.args[1],
-                path: decodedInput.args[2],
-                to: decodedInput.args[3],
-                deadline: decodedInput.args[4],
-                value: decodedInput.value
-            }
-            break;
-        case "swapTokensForExactTokens":
-            txInfo = {
-                amountOut: decodedInput.args[0],
-                amountInMax: decodedInput.args[1],
-                path: decodedInput.args[2],
-                to: decodedInput.args[3],
-                deadline: decodedInput.args[4],
-                value: decodedInput.value
-            }
-            break;
+        // case "swapExactTokensForTokens":
+        //     txInfo = {
+        //         functionName: funcName,
+        //         funcArgs: {
+        //             amountIn: decodedInput.args[0],
+        //             amountOutMin: decodedInput.args[1],
+        //             path: decodedInput.args[2],
+        //             to: decodedInput.args[3],
+        //             deadline: decodedInput.args[4],
+        //         },
+        //         value: decodedInput.value
+        //     }
+        //     break;
+        // case "swapTokensForExactTokens":
+        //     txInfo = {
+        //         functionName: funcName,
+        //         funcArgs: {
+        //             amountOut: decodedInput.args[0],
+        //             amountInMax: decodedInput.args[1],
+        //             path: decodedInput.args[2],
+        //             to: decodedInput.args[3],
+        //             deadline: decodedInput.args[4],
+        //         },
+        //         value: decodedInput.value
+        //     }
+        //     break;
         case "swapExactETHForTokens":
             txInfo = {
-                amountOutMin: decodedInput.args[0],
-                path: decodedInput.args[1],
-                to: decodedInput.args[2],
-                deadline: decodedInput.args[3],
+                functionName: funcName,
+                funcArgs: {
+                    amountOutMin: decodedInput.args[0],
+                    path: decodedInput.args[1],
+                    to: decodedInput.args[2],
+                    deadline: decodedInput.args[3],
+                },
                 value: decodedInput.value
             }
             break;
         case "swapToeknsForExactETH":
             txInfo = {
-                amountOut: decodedInput.args[0],
-                amountInMax: decodedInput.args[1],
-                path: decodedInput.args[2],
-                to: decodedInput.args[3],
-                deadline: decodedInput.args[4],
+                functionName: funcName,
+                funcArgs: {
+                    amountOut: decodedInput.args[0],
+                    amountInMax: decodedInput.args[1],
+                    path: decodedInput.args[2],
+                    to: decodedInput.args[3],
+                    deadline: decodedInput.args[4],
+                },
                 value: decodedInput.value
             }
             break;
         case "swapExactTokensForETH":
             txInfo = {
-                amountIn: decodedInput.args[0],
-                amountOutMin: decodedInput.args[1],
-                path: decodedInput.args[2],
-                to: decodedInput.args[3],
-                deadline: decodedInput.args[4],
+                functionName: funcName,
+                funcArgs: {
+                    amountIn: decodedInput.args[0],
+                    amountOutMin: decodedInput.args[1],
+                    path: decodedInput.args[2],
+                    to: decodedInput.args[3],
+                    deadline: decodedInput.args[4],
+                },
                 value: decodedInput.value
             }
             break;
         case "swapETHForExactTokens":
             txInfo = {
-                amountOut: decodedInput.args[0],
-                path: decodedInput.args[1],
-                to: decodedInput.args[2],
-                deadline: decodedInput.args[3],
+                functionName: funcName,
+                funcArgs: {
+                    amountOut: decodedInput.args[0],
+                    path: decodedInput.args[1],
+                    to: decodedInput.args[2],
+                    deadline: decodedInput.args[3],
+                },
                 value: decodedInput.value
             }
             break;
         default:
             return;
     }
+    if (!txInfo.funcArgs.path.includes(WETH_ADDRESS)) return;
     return txInfo;
+}
 
+export async function decodedUniswapRouterTransactionToString(decodedTx: UniswapRouterTransactionInfo, provider: providers.BaseProvider) {
+    const tokenIn = new Contract(decodedTx.funcArgs.path[0], ERC20_ABI, provider);
+    const tokenOut = new Contract(decodedTx.funcArgs.path[decodedTx.funcArgs.path.length - 1], ERC20_ABI, provider)
+    const tokenInDec = await tokenIn.functions.decimals();
+    const tokenOutDec = await tokenOut.functions.decimals();
+    
+    // let txInfo: UniswapRouterTransactionInfo;
+
+    // txInfo = {
+    //     functionName: decodedTx.functionName,
+    //     funcArgs: {
+    //         amountIn: decodedTx.funcArgs.amountIn ? ethers.utils.formatUnits(decodedTx.funcArgs.amountIn, tokenInDec) : undefined,
+    //         amountOut: decodedTx.funcArgs.amountOut ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOut, tokenOutDec) : undefined,
+    //         amountInMax: decodedTx.funcArgs.amountInMax ? ethers.utils.formatUnits(decodedTx.funcArgs.amountInMax, tokenInDec) : undefined,
+    //         amountOutMin: decodedTx.funcArgs.amountOutMin ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOutMin, tokenOutDec) : undefined,
+    //         path: decodedTx.funcArgs.path,
+    //         to: decodedTx.funcArgs.to,
+    //         deadline: decodedTx.funcArgs.deadline.toString()
+    //     },
+    //     value: ethers.utils.formatEther(decodedTx.value)
+    // }
+
+    let txInfo: any = {}
+    txInfo.functionName = decodedTx.functionName,
+    txInfo.amountIn =  decodedTx.funcArgs.amountIn ? ethers.utils.formatUnits(decodedTx.funcArgs.amountIn, tokenInDec) : undefined,
+    txInfo.amountOut =  decodedTx.funcArgs.amountOut ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOut, tokenOutDec) : undefined,
+    txInfo.amountInMax =  decodedTx.funcArgs.amountInMax ? ethers.utils.formatUnits(decodedTx.funcArgs.amountInMax, tokenInDec) : undefined,
+    txInfo.amountOutMin = decodedTx.funcArgs.amountOutMin ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOutMin, tokenOutDec) : undefined,
+    txInfo.path = decodedTx.funcArgs.path,
+    txInfo.to = decodedTx.funcArgs.to,
+    txInfo.deadline = decodedTx.funcArgs.deadline.toString()
+    txInfo.value = ethers.utils.formatEther(decodedTx.value)
+
+    return txInfo
 }

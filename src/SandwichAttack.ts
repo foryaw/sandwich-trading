@@ -1,15 +1,20 @@
 import { BigNumber, Contract, ethers, Wallet } from "ethers";
 import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
 
-export interface UniswapRouterTransactionInfo {
-    amountIn?: BigNumber,
-    amountOut?: BigNumber,
-    amountInMax?: BigNumber,
-    amountOutMin?: BigNumber,
+export type UniswapRouterTransactionArgs = {
+    amountIn?: BigNumber | string,
+    amountOut?: BigNumber | string,
+    amountInMax?: BigNumber | string,
+    amountOutMin?: BigNumber | string,
     path: string[],
     to: string,
-    deadline: BigNumber,
-    value: BigNumber
+    deadline: BigNumber | string,
+}
+
+export interface UniswapRouterTransactionInfo {
+    functionName: string,
+    funcArgs: UniswapRouterTransactionArgs,
+    value: BigNumber | string
 }
 
 export interface UniswapPairTransactionInfo {
@@ -30,7 +35,7 @@ export class SandwichAttack {
         this.executorWallet = executorWallet
     }
 
-    
+
 
     
 }

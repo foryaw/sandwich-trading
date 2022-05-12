@@ -79,6 +79,7 @@
     "ethjs-util": "^0.1.6",
     "event-target-shim": "^5.0.1",
     "evp_bytestokey": "^1.0.3",
+    "exceljs": "^4.3.0",
     "fill-range": "^7.0.1",
     "find-up": "^2.1.0",
     "flat": "^5.0.2",
