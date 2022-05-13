@@ -97,6 +97,16 @@ export class UniswapV2Pair extends UniswapMarket {
         return marketsByAddress;
     }
 
+    static getUniswapMarketByTokenPair(token0: string, token1: string, allMarketPairs: Array<UniswapV2Pair>): UniswapV2Pair | undefined {
+        for (let i = 0; i < allMarketPairs.length; i++) {
+            const pair = allMarketPairs[i]
+            if (pair._tokens.includes(token0) && pair._tokens.includes(token1)) {
+                return pair;
+            }
+        }
+        return;
+    } 
+
     getBalance(tokenAddress: string): BigNumber {
         const balance = this._tokenBalances[tokenAddress]
         if (balance === undefined) throw new Error("bad token")
@@ -169,6 +179,35 @@ export class UniswapV2Pair extends UniswapMarket {
         const numerator = amountInWithFee.mul(reserveOut);
         const denominator = reserveIn.mul(1000).add(amountInWithFee);
         return numerator.div(denominator);
+    }
+
+    getAmountsIn(amountOut: BigNumber, path: Array<string>, allMarketPairs: Array<UniswapV2Pair>): Array<BigNumber> {
+        if (path.length < 2) throw new Error("invalid path");
+        const amounts = new Array<BigNumber>(path.length);
+        amounts[amounts.length - 1] = amountOut
+
+        for (let i = path.length - 1; i > 0; i--) {
+            const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i - 1], allMarketPairs)
+            if (!pair) throw new Error()
+            const reserveIn = pair._tokenBalances[path[i - 1]]
+            const reserveOut = pair._tokenBalances[path[i]]
+            amounts[i - 1] = this.getAmountIn(reserveIn, reserveOut, amountOut)
+        }
+        return amounts;
+    }
+
+    getAmountsOut(amountIn: BigNumber, path: Array<string>, allMarketPairs: Array<UniswapV2Pair>): Array<BigNumber> {
+        if (path.length < 2) throw new Error("invalid path")
+        const amounts = new Array<BigNumber>(path.length);
+        amounts[0] = amountIn;
+        for (let i = 0; i < path.length - 1; i++) {
+            const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i + 1], allMarketPairs)
+            if (!pair) throw new Error()
+            const reserveIn = pair._tokenBalances[path[i]]
+            const reserveOut = pair._tokenBalances[path[i + 1]]
+            amounts[i + 1] = this.getAmountOut(reserveIn, reserveOut, amountIn)
+        }
+        return amounts;
     }
 }
 

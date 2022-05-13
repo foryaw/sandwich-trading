@@ -177,12 +177,12 @@ export async function decodedUniswapRouterTransactionToString(decodedTx: Uniswap
 
     let txInfo: any = {}
     txInfo.functionName = decodedTx.functionName,
+    txInfo.tokenIn = await tokenIn.functions.symbol()
+    txInfo.tokenOut = await tokenOut.functions.symbol()
     txInfo.amountIn =  decodedTx.funcArgs.amountIn ? ethers.utils.formatUnits(decodedTx.funcArgs.amountIn, tokenInDec) : undefined,
     txInfo.amountOut =  decodedTx.funcArgs.amountOut ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOut, tokenOutDec) : undefined,
     txInfo.amountInMax =  decodedTx.funcArgs.amountInMax ? ethers.utils.formatUnits(decodedTx.funcArgs.amountInMax, tokenInDec) : undefined,
     txInfo.amountOutMin = decodedTx.funcArgs.amountOutMin ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOutMin, tokenOutDec) : undefined,
-    txInfo.tokenIn = await tokenIn.functions.symbol()
-    txInfo.tokenOut = await tokenOut.functions.symbol()
     txInfo.value = ethers.utils.formatEther(decodedTx.value)
 
     return txInfo
