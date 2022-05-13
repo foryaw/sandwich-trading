@@ -189,9 +189,7 @@ export class UniswapV2Pair extends UniswapMarket {
         for (let i = path.length - 1; i > 0; i--) {
             const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i - 1], allMarketPairs)
             if (!pair) throw new Error()
-            const reserveIn = pair._tokenBalances[path[i - 1]]
-            const reserveOut = pair._tokenBalances[path[i]]
-            amounts[i - 1] = this.getAmountIn(reserveIn, reserveOut, amountOut)
+            amounts[i - 1] = pair.getTokensIn(path[i - 1], path[i], amountOut)
         }
         return amounts;
     }
@@ -203,9 +201,7 @@ export class UniswapV2Pair extends UniswapMarket {
         for (let i = 0; i < path.length - 1; i++) {
             const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i + 1], allMarketPairs)
             if (!pair) throw new Error()
-            const reserveIn = pair._tokenBalances[path[i]]
-            const reserveOut = pair._tokenBalances[path[i + 1]]
-            amounts[i + 1] = this.getAmountOut(reserveIn, reserveOut, amountIn)
+            amounts[i + 1] = pair.getTokensOut(path[i], path[i - 1], amountIn)
         }
         return amounts;
     }

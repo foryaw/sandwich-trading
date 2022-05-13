@@ -108,7 +108,7 @@ export function decodeUniswapRouterTransaction(transaction: TransactionResponse)
                 value: decodedInput.value
             }
             break;
-        case "swapToeknsForExactETH":
+        case "swapTokensForExactETH":
             txInfo = {
                 functionName: funcName,
                 funcArgs: {
