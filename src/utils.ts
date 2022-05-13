@@ -158,7 +158,7 @@ export async function decodedUniswapRouterTransactionToString(decodedTx: Uniswap
     const tokenOut = new Contract(decodedTx.funcArgs.path[decodedTx.funcArgs.path.length - 1], ERC20_ABI, provider)
     const tokenInDec = await tokenIn.functions.decimals();
     const tokenOutDec = await tokenOut.functions.decimals();
-    
+
     // let txInfo: UniswapRouterTransactionInfo;
 
     // txInfo = {
@@ -181,9 +181,8 @@ export async function decodedUniswapRouterTransactionToString(decodedTx: Uniswap
     txInfo.amountOut =  decodedTx.funcArgs.amountOut ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOut, tokenOutDec) : undefined,
     txInfo.amountInMax =  decodedTx.funcArgs.amountInMax ? ethers.utils.formatUnits(decodedTx.funcArgs.amountInMax, tokenInDec) : undefined,
     txInfo.amountOutMin = decodedTx.funcArgs.amountOutMin ? ethers.utils.formatUnits(decodedTx.funcArgs.amountOutMin, tokenOutDec) : undefined,
-    txInfo.path = decodedTx.funcArgs.path,
-    txInfo.to = decodedTx.funcArgs.to,
-    txInfo.deadline = decodedTx.funcArgs.deadline.toString()
+    txInfo.tokenIn = await tokenIn.functions.symbol()
+    txInfo.tokenOut = await tokenOut.functions.symbol()
     txInfo.value = ethers.utils.formatEther(decodedTx.value)
 
     return txInfo
