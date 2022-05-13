@@ -4,8 +4,6 @@ export interface TokenBalances {
     [tokenAddress: string]: BigNumber
 }
 
-export interface MarketsByAddress = 
-
 export abstract class UniswapMarket {
     get marketAddress(): string {
         return this._marketAddress;

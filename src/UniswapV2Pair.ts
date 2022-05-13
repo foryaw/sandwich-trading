@@ -1,18 +1,12 @@
 import * as _ from "lodash";
 import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI } from "./abi";
 import { WETH_ADDRESS, UNISWAP_LOOKUP_CONTRACT_ADDRESS } from "./addresses";
-import { BigNumber, BigNumberish, Contract, providers } from "ethers";
+import { BigNumber, Contract, providers } from "ethers";
 import { TokenBalances, UniswapMarket } from "./UniswapMarket";
-import { BaseProvider } from "@ethersproject/providers";
+import { UniswapV2Library } from "./UniswapV2Library";
 
 const BATCH_COUNT_LIMIT = 100;
 const UNISWAP_BATCH_SIZE = 1000;
-
-// Not necessary, slightly speeds up loading initialization when we know tokens are bad
-// Estimate gas will ensure we aren't submitting bad bundles, but bad tokens waste time
-const blacklistTokens = [
-    '0xD75EA151a61d06868E31F8988D28DFE5E9df57B4'
-  ]
 
 export type MarketsByAddress = { [marketAddress: string]: UniswapV2Pair }
 export class UniswapV2Pair extends UniswapMarket {
@@ -34,20 +28,8 @@ export class UniswapV2Pair extends UniswapMarket {
             for (let i = 0; i < pairs.length; i++) {
                 const pair = pairs[i];
                 const marketAddress = pair[2];
-                let tokenAddress: string;
-
-                if(pair[0] === WETH_ADDRESS) {
-                    tokenAddress = pair[1];
-                }
-                else if (pair[1] === WETH_ADDRESS) {
-                    tokenAddress = pair[0]
-                }
-                else continue;
-
-                if (!blacklistTokens.includes(tokenAddress)) {
-                    const uniswapV2Pair = new UniswapV2Pair(marketAddress, [pair[0], pair[1]], "");
-                    marketPairs.push(uniswapV2Pair);
-                }
+                const uniswapV2Pair = new UniswapV2Pair(marketAddress, [pair[0], pair[1]], "");
+                marketPairs.push(uniswapV2Pair);
             }
             if (pairs.length < UNISWAP_BATCH_SIZE) {
                 break;
@@ -89,13 +71,13 @@ export class UniswapV2Pair extends UniswapMarket {
         }
     }
 
-    static getUniswapMarketByAddress(allMarketPairs: Array<UniswapV2Pair>): MarketsByAddress {
-        const marketsByAddress: MarketsByAddress = _.chain(allMarketPairs)
-            .flatten()
-            .keyBy(pair => pair.marketAddress)
-            .value()
-        return marketsByAddress;
-    }
+    // static getUniswapMarketByAddress(allMarketPairs: Array<UniswapV2Pair>): MarketsByAddress {
+    //     const marketsByAddress: MarketsByAddress = _.chain(allMarketPairs)
+    //         .flatten()
+    //         .keyBy(pair => pair.marketAddress)
+    //         .value()
+    //     return marketsByAddress;
+    // }
 
     static getUniswapMarketByTokenPair(token0: string, token1: string, allMarketPairs: Array<UniswapV2Pair>): UniswapV2Pair | undefined {
         for (let i = 0; i < allMarketPairs.length; i++) {
@@ -126,13 +108,13 @@ export class UniswapV2Pair extends UniswapMarket {
     getTokensIn(tokenIn: string, tokenOut: string, amountOut: BigNumber): BigNumber {
         const reserveIn = this._tokenBalances[tokenIn]
         const reserveOut = this._tokenBalances[tokenOut]
-        return this.getAmountIn(reserveIn, reserveOut, amountOut);
+        return UniswapV2Library.getAmountIn(reserveIn, reserveOut, amountOut);
     }
     
     getTokensOut(tokenIn: string, tokenOut: string, amountIn: BigNumber): BigNumber {
         const reserveIn = this._tokenBalances[tokenIn]
         const reserveOut = this._tokenBalances[tokenOut]
-        return this.getAmountOut(reserveIn, reserveOut, amountIn);
+        return UniswapV2Library.getAmountOut(reserveIn, reserveOut, amountIn);
     }
     
     // always quote in WETH, such as USDT/WETH
@@ -160,50 +142,6 @@ export class UniswapV2Pair extends UniswapMarket {
             return newReserveOut.div(newReserveIn)
         }
         else return;
-    }
-    // UniswapV2Router function
-    quote(amountA: BigNumber, reserveA: BigNumber, reserveB: BigNumber): BigNumber {
-        return amountA.mul(reserveB).div(reserveA);
-    }
-    
-    // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
-    getAmountIn(reserveIn: BigNumber, reserveOut: BigNumber, amountOut: BigNumber): BigNumber {
-        const numerator = reserveIn.mul(amountOut).mul(1000);
-        const denominator = reserveOut.sub(amountOut).mul(997);
-        return numerator.div(denominator).add(1);
-    }
-
-    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-    getAmountOut(reserveIn: BigNumber, reserveOut: BigNumber, amountIn: BigNumber): BigNumber {
-        const amountInWithFee = amountIn.mul(997);
-        const numerator = amountInWithFee.mul(reserveOut);
-        const denominator = reserveIn.mul(1000).add(amountInWithFee);
-        return numerator.div(denominator);
-    }
-
-    getAmountsIn(amountOut: BigNumber, path: Array<string>, allMarketPairs: Array<UniswapV2Pair>): Array<BigNumber> {
-        if (path.length < 2) throw new Error("invalid path");
-        const amounts = new Array<BigNumber>(path.length);
-        amounts[amounts.length - 1] = amountOut
-
-        for (let i = path.length - 1; i > 0; i--) {
-            const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i - 1], allMarketPairs)
-            if (!pair) throw new Error()
-            amounts[i - 1] = pair.getTokensIn(path[i - 1], path[i], amountOut)
-        }
-        return amounts;
-    }
-
-    getAmountsOut(amountIn: BigNumber, path: Array<string>, allMarketPairs: Array<UniswapV2Pair>): Array<BigNumber> {
-        if (path.length < 2) throw new Error("invalid path")
-        const amounts = new Array<BigNumber>(path.length);
-        amounts[0] = amountIn;
-        for (let i = 0; i < path.length - 1; i++) {
-            const pair = UniswapV2Pair.getUniswapMarketByTokenPair(path[i], path[i + 1], allMarketPairs)
-            if (!pair) throw new Error()
-            amounts[i + 1] = pair.getTokensOut(path[i], path[i - 1], amountIn)
-        }
-        return amounts;
     }
 }
 
