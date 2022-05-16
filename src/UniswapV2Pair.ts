@@ -1,14 +1,13 @@
 import * as _ from "lodash";
+import { BigNumber, Contract, providers } from "ethers";
 import { UNISWAP_PAIR_ABI, UNISWAP_QUERY_ABI } from "./abi";
 import { WETH_ADDRESS, UNISWAP_LOOKUP_CONTRACT_ADDRESS } from "./addresses";
-import { BigNumber, Contract, providers } from "ethers";
 import { TokenBalances, UniswapMarket } from "./UniswapMarket";
 import { UniswapV2Library } from "./UniswapV2Library";
 
 const BATCH_COUNT_LIMIT = 100;
 const UNISWAP_BATCH_SIZE = 1000;
 
-export type MarketsByAddress = { [marketAddress: string]: UniswapV2Pair }
 export class UniswapV2Pair extends UniswapMarket {
     private _tokenBalances: TokenBalances;
 
@@ -79,15 +78,24 @@ export class UniswapV2Pair extends UniswapMarket {
     //     return marketsByAddress;
     // }
 
-    static getUniswapMarketByTokenPair(token0: string, token1: string, allMarketPairs: Array<UniswapV2Pair>): UniswapV2Pair | undefined {
+    static getUniswapMarketByTokenPair(token0: string, token1: string, allMarketPairs: Array<UniswapV2Pair>): UniswapV2Pair {
         for (let i = 0; i < allMarketPairs.length; i++) {
             const pair = allMarketPairs[i]
             if (pair._tokens.includes(token0) && pair._tokens.includes(token1)) {
                 return pair;
             }
         }
-        return;
-    } 
+        throw new Error("market not found")
+    }
+
+    static getUniswapMarketsByPath(path: Array<string>, allMarketPairs: Array<UniswapV2Pair>): Array<UniswapV2Pair> {
+        const marketsPairs = new Array<UniswapV2Pair>(path.length - 1)
+        for (let i = 0; i < path.length - 1; i++) {
+            const pair = this.getUniswapMarketByTokenPair(path[i], path[i + 1], allMarketPairs)
+            marketsPairs.push(pair);
+        }
+        return marketsPairs;
+    }
 
     getBalance(tokenAddress: string): BigNumber {
         const balance = this._tokenBalances[tokenAddress]
@@ -117,31 +125,42 @@ export class UniswapV2Pair extends UniswapMarket {
         return UniswapV2Library.getAmountOut(reserveIn, reserveOut, amountIn);
     }
     
-    // always quote in WETH, such as USDT/WETH
-    priceAfterSwapInExactToken(tokenIn: string, tokenOut: string, amountIn: BigNumber): BigNumber | undefined {
-        // confirm the maths
-        const newReserveIn = this._tokenBalances[tokenIn].add(amountIn.mul(997))
-        const newReserveOut =  this._tokenBalances[tokenOut].sub(this.getTokensOut(tokenIn, tokenOut, amountIn))
-        if (tokenIn === "WETH") {
-            return newReserveOut.div(newReserveIn);
-        }
-        else if (tokenOut === "WETH") {
-            return newReserveIn.div(newReserveOut);
-        }
-        else return;
+    // always return the quote of token1 in term of token0 => amount of token1 per token0 => token0/token1
+    currentQuote(): BigNumber {
+        return this._tokenBalances[1].div(this._tokenBalances[0]);
     }
-
-    priceAfterSwapOutExactToken(tokenIn: string, tokenOut: string, amountOut: BigNumber): BigNumber | undefined {
+    // always return the quote of token1 in term of token0 => amount of token1 per token0 => token0/token1
+    // @param isSwapIn == true when exact tokenIn is specified; isSwapIn == false when exact tokenOut is sepcified
+    estimateQuoteAfterSwap(tokenIn: string, tokenOut: string, amount: BigNumber, isSwapIn: boolean): BigNumber {
         // confirm the maths
-        const newReserveIn = this._tokenBalances[tokenIn].add(this.getTokensIn(tokenIn, tokenOut, amountOut))
-        const newReserveOut = this._tokenBalances[tokenOut].sub(amountOut)
-        if (tokenIn === "WETH") {
-            return newReserveIn.div(newReserveOut)
+        let newReserveIn: BigNumber;
+        let newReserveOut: BigNumber;
+        if (isSwapIn) {
+            newReserveIn = this._tokenBalances[tokenIn].add(amount.mul(997))
+            newReserveOut =  this._tokenBalances[tokenOut].sub(this.getTokensOut(tokenIn, tokenOut, amount)) 
         }
-        else if (tokenOut === "WETH") {
+        else {
+            newReserveIn = this._tokenBalances[tokenIn].add(this.getTokensIn(tokenIn, tokenOut, amount))
+            newReserveOut = this._tokenBalances[tokenOut].sub(amount)
+        }
+        if (this._tokens[0] === tokenIn) {
             return newReserveOut.div(newReserveIn)
         }
-        else return;
+        else if (this._tokens[0] === tokenOut) {
+            return newReserveIn.div(newReserveOut)
+        }
+        else {
+            throw new Error("tokenIn can't be the same as tokenOut")
+        }
     }
+
+    percentageChangeOfQuoteAfterSwap(tokenIn: string, tokenOut: string, amount: BigNumber, isSwapIn: boolean): number {
+        const quoteBefore = this.currentQuote()
+        const quoteAfter = this.estimateQuoteAfterSwap(tokenIn ,tokenOut, amount, isSwapIn)
+        const numerator = (quoteAfter.sub(quoteBefore)).toNumber()
+        const denominator = quoteAfter.toNumber()
+        return numerator / denominator;
+    }
+
 }
 

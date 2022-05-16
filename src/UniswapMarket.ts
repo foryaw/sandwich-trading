@@ -3,7 +3,6 @@ import { BigNumber } from "ethers";
 export interface TokenBalances {
     [tokenAddress: string]: BigNumber
 }
-
 export abstract class UniswapMarket {
     get marketAddress(): string {
         return this._marketAddress;

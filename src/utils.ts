@@ -1,8 +1,8 @@
 import { BigNumber, Wallet, ethers, Contract, providers } from "ethers";
 import { TransactionResponse } from "@ethersproject/abstract-provider";
 import { UNISWAP_PAIR_ABI, UNISWAP_ROUTER_ABI, ERC20_ABI } from "./abi";
-import { UniswapPairTransactionInfo, UniswapRouterTransactionInfo } from "./SandwichAttack";
 import { WETH_ADDRESS } from "./addresses";
+import { UniswapTransactionArgs, UniswapTransactionInfo} from "./index";
 
 export const ETHER = BigNumber.from(10).pow(18)
 export const GWEI = BigNumber.from(10).pow(9)
@@ -51,23 +51,11 @@ export async function getSignedTransaction(transaction: TransactionResponse): Pr
     return signedTransaction
 }
 
-export function decodeUniswapPairTransaction(transaction: TransactionResponse): UniswapPairTransactionInfo {
-    const iface = new ethers.utils.Interface(UNISWAP_PAIR_ABI);
-    const decodedInput = iface.parseTransaction({ data: transaction.data, value: transaction.value });
-    const txInfo: UniswapPairTransactionInfo = {
-        amount0Out: decodedInput.args[0],
-        amount1Out: decodedInput.args[1],
-        to: decodedInput.args[2],
-        data: decodedInput.args[3]
-    }
-    return txInfo;
-}
-
-export function decodeUniswapRouterTransaction(transaction: TransactionResponse): UniswapRouterTransactionInfo | undefined {
+export function decodeUniswapRouterTransaction(transaction: TransactionResponse): UniswapTransactionInfo | undefined {
     const iface = new ethers.utils.Interface(UNISWAP_ROUTER_ABI);
     const decodedInput = iface.parseTransaction({ data: transaction.data, value: transaction.value });
     const funcName = decodedInput.name
-    let txInfo: UniswapRouterTransactionInfo;
+    let txInfo: UniswapTransactionInfo;
 
     switch (funcName) {
         // case "swapExactTokensForTokens":
@@ -153,7 +141,7 @@ export function decodeUniswapRouterTransaction(transaction: TransactionResponse)
     return txInfo;
 }
 
-export async function decodedUniswapRouterTransactionToString(decodedTx: UniswapRouterTransactionInfo, provider: providers.BaseProvider) {
+export async function uniswapRouterTxInfoToReadable(decodedTx: UniswapTransactionInfo, provider: providers.BaseProvider) {
     const tokenIn = new Contract(decodedTx.funcArgs.path[0], ERC20_ABI, provider);
     const tokenOut = new Contract(decodedTx.funcArgs.path[decodedTx.funcArgs.path.length - 1], ERC20_ABI, provider)
     const tokenInDec = await tokenIn.functions.decimals();
