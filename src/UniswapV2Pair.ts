@@ -126,12 +126,12 @@ export class UniswapV2Pair extends UniswapMarket {
     }
     
     // always return the quote of token1 in term of token0 => amount of token1 per token0 => token0/token1
-    currentQuote(): BigNumber {
+    getPrice(): BigNumber {
         return this._tokenBalances[1].div(this._tokenBalances[0]);
     }
     // always return the quote of token1 in term of token0 => amount of token1 per token0 => token0/token1
     // @param isSwapIn == true when exact tokenIn is specified; isSwapIn == false when exact tokenOut is sepcified
-    estimateQuoteAfterSwap(tokenIn: string, tokenOut: string, amount: BigNumber, isSwapIn: boolean): BigNumber {
+    afterSwapPrice(tokenIn: string, tokenOut: string, amount: BigNumber, isSwapIn: boolean): BigNumber {
         // confirm the maths
         let newReserveIn: BigNumber;
         let newReserveOut: BigNumber;
@@ -152,14 +152,6 @@ export class UniswapV2Pair extends UniswapMarket {
         else {
             throw new Error("tokenIn can't be the same as tokenOut")
         }
-    }
-
-    percentageChangeOfQuoteAfterSwap(tokenIn: string, tokenOut: string, amount: BigNumber, isSwapIn: boolean): number {
-        const quoteBefore = this.currentQuote()
-        const quoteAfter = this.estimateQuoteAfterSwap(tokenIn ,tokenOut, amount, isSwapIn)
-        const numerator = (quoteAfter.sub(quoteBefore)).toNumber()
-        const denominator = quoteAfter.toNumber()
-        return numerator / denominator;
     }
 
 }
